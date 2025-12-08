@@ -4,28 +4,33 @@ import dogImage from '/DOG.jpg';
 import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <>
       <div>
-        <a href="#" target="_blank">
-          <img src={dogImage} className="logo vue" alt="Dog Image" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={meepoImage} className="logo react" alt="Meepo Image" />
-        </a>
+        {/* Upper content */}
+        <div className="p-4  w-full">
+          <h1 className="text-3xl font-bold ">Dota 2 Counter picker</h1>
+          <h2>Find the best counter picks for the enemy team kay yawa sila</h2>
+        </div>
+        {/* Input area */}
+        <div className={`p-4 w-full flex justify-center `}>
+          <div
+            className={`bg-gray-800 rounded-2xl w-1/5 p-2 flex items-center
+              ${isFocused ? 'outline-gray-500 outline-2' : ''}`}
+            onClick={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+          >
+            <i className="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              className="w-full p-1 placeholder:text-gray-500 active: outline-none"
+              placeholder="Search hero..."
+            />
+          </div>
+        </div>
       </div>
-      <h1>Dire Dog Squad vs. Stupid Heroes</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          Meepo Haters: {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">Oh my god I hate meepo</p>
     </>
   );
 }
