@@ -9,9 +9,11 @@ function App() {
   return (
     <>
       <div>
+        <img src={dogImage} alt="THE DOG" className="w-20 fixed top-5 left-5" />
         {/* Upper content */}
-        <div className="p-4  w-full">
+        <div className="p-4 w-full">
           <h1 className="text-3xl font-bold ">Dota 2 Counter picker</h1>
+
           <h2>Find the best counter picks for the enemy team kay yawa sila</h2>
         </div>
         {/* Input area */}
