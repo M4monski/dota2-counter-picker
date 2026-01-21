@@ -24,7 +24,7 @@ function App() {
       const data = await fetchHeroWinrate();
       console.log('Hero Winrates Loaded', data);
     };
-  });
+  }, []);
 
   return (
     <>
@@ -94,12 +94,17 @@ function App() {
               <h1>Your Team</h1>
               <div className="flex justify-center gap-4 flex-wrap ">
                 {selectedHeroes.map((selectedHero) => (
-                  <div
+                  <button
                     key={selectedHero}
                     className="max-w-md w-2xs text-blue-50 bg-gray-800 p-2"
+                    onClick={() => {
+                      setSelectedHeroes(
+                        selectedHeroes.filter((hero) => hero !== selectedHero),
+                      );
+                    }}
                   >
                     <h2>{selectedHero}</h2>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
