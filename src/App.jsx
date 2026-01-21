@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import meepoImage from '/MEEPO.jpg';
 import dogImage from '/DOG.jpg';
-import { fetchHeroes } from './api';
+import { fetchHeroes, fetchHeroCounters, fetchHeroWinrate } from './api';
 import './App.css';
 
 function App() {
@@ -19,6 +19,13 @@ function App() {
     loadHeroes();
   }, []);
 
+  useEffect(() => {
+    const loadWinrates = async () => {
+      const data = await fetchHeroWinrate();
+      console.log('Hero Winrates Loaded', data);
+    };
+  });
+
   return (
     <>
       <div>
@@ -33,10 +40,9 @@ function App() {
         </div>
 
         {/* Main content */}
-        <div className="flex justify-center m-4 gap-4">
-          {/* Hero Picks */}
-          <div className="container">
-            <h1>Your Team</h1>
+        <div className="flex justify-center m-auto gap-4 w-4/5">
+          {/* Hero Selection */}
+          <div className="container w-1/2 ">
             {/* Input area */}
             <search>
               <div className={`p-4 w-full flex justify-center `}>
@@ -57,22 +63,49 @@ function App() {
             </search>
 
             {/* Hero Picks Content */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid gap-4 overflow-y-scroll h-[62vh]">
               {heroes.map((hero) => (
-                <div key={hero.id} className="hero-item">
-                  <button>
+                <div key={hero.id} className="">
+                  <button
+                    className="max-w-md lg:w-md md:w-2xs text-blue-50"
+                    onClick={() => {
+                      if (
+                        selectedHeroes.includes(hero.localized_name) ||
+                        selectedHeroes.length >= 5
+                      ) {
+                        return;
+                      }
+                      setSelectedHeroes([
+                        ...selectedHeroes,
+                        hero.localized_name,
+                      ]);
+                    }}
+                  >
                     <h3>{hero.localized_name}</h3>
-                    <p>{hero.primary_attr}</p>
-                    <p>{hero.attack_type}</p>
                   </button>
                 </div>
               ))}
             </div>
           </div>
-          {/* Counter Picks */}
-          <div className="container">
+          {/* Selected Heroes and Counter Picks */}
+          <div className="container h-1/2 ">
+            {/* Selected Heroes */}
+            <div className="bg-gray-600 p-2 py-4 mb-6 w-full rounded-2xl">
+              <h1>Your Team</h1>
+              <div className="flex justify-center gap-4 flex-wrap ">
+                {selectedHeroes.map((selectedHero) => (
+                  <div
+                    key={selectedHero}
+                    className="max-w-md w-2xs text-blue-50 bg-gray-800 p-2"
+                  >
+                    <h2>{selectedHero}</h2>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Counter Picks Content */}
             <h1>Counter Analysis</h1>
-            {/* Counters Picks Content */}
             <div className=""></div>
           </div>
         </div>

@@ -6,8 +6,14 @@ export const fetchHeroes = async () => {
 
 export const fetchHeroCounters = async (heroId) => {
   const response = await fetch(
-    `https://api.opendota.com/api/heroes/${heroId}/matchups`
+    `https://api.opendota.com/api/heroes/${heroId}/matchups`,
   );
+  const data = await response.json();
+  return data;
+};
+
+export const fetchHeroWinrate = async () => {
+  const response = await fetch(`https://api.opendota.com/api/heroStats/`);
   const data = await response.json();
   return data;
 };
