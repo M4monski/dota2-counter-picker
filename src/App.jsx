@@ -46,98 +46,142 @@ function App() {
     return 'loading results...';
   };
 
+  const getWinrateColor = (winrate) => {
+    if (typeof winrate === 'string' && winrate.includes('%')) {
+      const val = parseFloat(winrate);
+      return val >= 50 ? 'text-green-400' : 'text-red-400';
+    }
+    return 'text-gray-400';
+  };
+
   return (
     <>
-      <div>
-        <img src={dogImage} alt="THE DOG" className="w-20 fixed top-5 left-5" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 text-white font-sans selection:bg-red-500 selection:text-white">
+        <img
+          src={dogImage}
+          alt="THE DOG"
+          className="w-16 h-16 rounded-full border-2 border-red-500 fixed top-5 left-5 shadow-lg z-50 hover:scale-110 transition-transform duration-300"
+        />
+
         {/* Upper content */}
-        <div className="p-4 w-full">
-          <h1 className="text-3xl font-bold ">Dota Counter picker</h1>
-          <h2>
-            Select your team's heroes to discover their counter picks and items
-            kay yawa sila
-          </h2>
+        <div className="pt-10 pb-6 w-full text-center space-y-2">
+          <h1 className="text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-linear-to-r from-red-500 to-orange-400 drop-shadow-sm">
+            Dota 2 Counter Picker
+          </h1>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            Select your team's heroes to discover their counter picks and items.
+            <span className="block text-xs text-gray-600 mt-1 italic">
+              "kay yawa sila"
+            </span>
+          </p>
         </div>
 
         {/* Main content */}
-        <div className="flex justify-center m-auto gap-4 w-4/5">
+        <div className="flex flex-col lg:flex-row justify-center m-auto gap-8 w-[90%] max-w-7xl pb-10">
           {/* Hero Selection */}
-          <div className="container w-1/2 ">
+          <div className="flex-1 bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700 shadow-xl overflow-hidden flex flex-col h-[75vh]">
             {/* Input area */}
-            <search>
-              <div className={`p-4 w-full flex justify-center `}>
-                <div
-                  className={`bg-gray-800 rounded-2xl w-full p-2 flex items-center
-              ${isFocused ? 'outline-gray-500 outline-2' : ''}`}
-                  onClick={() => setIsFocused(true)}
+            <div className="p-6 border-b border-gray-700 bg-gray-800/80">
+              <div
+                className={`bg-gray-900 rounded-xl w-full px-4 py-3 flex items-center gap-3 border transition-all duration-300
+                  ${isFocused ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-gray-600'}`}
+              >
+                <i
+                  className={`fa-solid fa-magnifying-glass ${isFocused ? 'text-red-500' : 'text-gray-500'}`}
+                ></i>
+                <input
+                  type="text"
+                  className="w-full bg-transparent text-gray-200 placeholder:text-gray-600 focus:outline-none text-lg"
+                  placeholder="Search heroes..."
+                  onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
-                >
-                  <i className="fa-solid fa-magnifying-glass"></i>
-                  <input
-                    type="text"
-                    className="w-full p-1 placeholder:text-gray-500 active: outline-none"
-                    placeholder="Search heroes..."
-                  />
-                </div>
+                />
               </div>
-            </search>
+            </div>
 
             {/* Hero Picks Content */}
-            <div className="grid gap-4 overflow-y-scroll h-[62vh]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {heroes.map((hero) => (
-                <div key={hero.id} className="">
-                  <button
-                    className="max-w-md lg:w-md md:w-2xs text-blue-50"
-                    onClick={() => {
-                      if (
-                        selectedHeroes.includes(hero.localized_name) ||
-                        selectedHeroes.length >= 5
-                      ) {
-                        return;
-                      }
-                      setSelectedHeroes([
-                        ...selectedHeroes,
-                        hero.localized_name,
-                      ]);
-                    }}
+                <button
+                  key={hero.id}
+                  className="w-full group flex items-center justify-between p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
+                  onClick={() => {
+                    if (
+                      selectedHeroes.includes(hero.localized_name) ||
+                      selectedHeroes.length >= 5
+                    ) {
+                      return;
+                    }
+                    setSelectedHeroes([...selectedHeroes, hero.localized_name]);
+                  }}
+                >
+                  <span className="font-medium text-gray-200 group-hover:text-white transition-colors">
+                    {hero.localized_name}
+                  </span>
+                  <span
+                    className={`text-sm font-mono font-bold ${getWinrateColor(getHeroWinrate(hero.id))}`}
                   >
-                    <h3>
-                      {hero.localized_name} {getHeroWinrate(hero.id)}
-                    </h3>
-                  </button>
-                </div>
+                    {getHeroWinrate(hero.id)}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
+
           {/* Selected Heroes and Counter Picks */}
-          <div className="container h-1/2 ">
+          <div className="flex-1 flex flex-col gap-6 h-[75vh]">
             {/* Selected Heroes */}
-            <div className="bg-gray-600 p-2 py-4 mb-6 w-full rounded-2xl">
-              <h1>Your Team</h1>
-              <div className="flex justify-center gap-4 flex-wrap ">
-                {selectedHeroes.map((selectedHero) => (
-                  <button
-                    key={selectedHero}
-                    className="max-w-md w-2xs text-blue-50 bg-gray-800 p-2"
-                    onClick={() => {
-                      setSelectedHeroes(
-                        selectedHeroes.filter((hero) => hero !== selectedHero),
-                      );
-                    }}
-                  >
-                    <h2>{selectedHero}</h2>
-                  </button>
-                ))}
+            <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
+                  <i className="fa-solid fa-users text-red-500"></i> Your Team
+                </h2>
+                <span className="text-xs font-mono text-gray-500 bg-gray-900 px-2 py-1 rounded-md border border-gray-800">
+                  {selectedHeroes.length} / 5
+                </span>
+              </div>
+
+              <div className="min-h-[100px] flex flex-wrap gap-3">
+                {selectedHeroes.length === 0 ? (
+                  <div className="w-full h-24 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center text-gray-600 text-sm">
+                    Select heroes from the list
+                  </div>
+                ) : (
+                  selectedHeroes.map((selectedHero) => (
+                    <button
+                      key={selectedHero}
+                      className="flex items-center gap-2 bg-gradient-to-r from-red-900/40 to-gray-800 pl-3 pr-2 py-2 rounded-lg border border-red-900/30 hover:border-red-500/50 hover:from-red-900/60 transition-all group animate-fadeIn"
+                      onClick={() => {
+                        setSelectedHeroes(
+                          selectedHeroes.filter(
+                            (hero) => hero !== selectedHero,
+                          ),
+                        );
+                      }}
+                    >
+                      <span className="font-medium text-sm">
+                        {selectedHero}
+                      </span>
+                      <i className="fa-solid fa-xmark text-gray-500 group-hover:text-red-400 transition-colors text-xs"></i>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
             {/* Counter Picks Content */}
-            <h1>Counter Analysis</h1>
-            <div className=""></div>
+            <div className="flex-1 bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl flex flex-col">
+              <h2 className="text-xl font-bold text-gray-100 mb-4 flex items-center gap-2">
+                <i className="fa-solid fa-chart-simple text-blue-500"></i>{' '}
+                Counter Analysis
+              </h2>
+              <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
+                <i className="fa-solid fa-chart-pie text-4xl opacity-20"></i>
+                <p>Analysis will appear here...</p>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Footer */}
       </div>
     </>
   );
