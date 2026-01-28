@@ -7,6 +7,8 @@ import './App.css';
 function App() {
   const [isFocused, setIsFocused] = useState(false);
   const [heroes, setHeroes] = useState([]);
+
+  const [heroWinrates, setHeroWinrates] = useState([]);
   const [selectedHeroes, setSelectedHeroes] = useState([]);
   const [counterPicks, setCounterPicks] = useState([]);
 
@@ -15,16 +17,34 @@ function App() {
       const data = await fetchHeroes();
       setHeroes(data);
       console.log('Heroes Loaded', data);
+
+      try {
+        const winrates = await fetchHeroWinrate();
+        setHeroWinrates(winrates);
+        console.log('Hero Winrates Loaded', winrates);
+      } catch (error) {
+        console.error('Error loading winrates:', error);
+      }
     };
     loadHeroes();
   }, []);
 
-  useEffect(() => {
-    const loadWinrates = async () => {
-      const data = await fetchHeroWinrate();
-      console.log('Hero Winrates Loaded', data);
-    };
-  }, []);
+  const getHeroWinrate = (heroId) => {
+    if (heroWinrates && heroWinrates.length > 0) {
+      const heroData = heroWinrates[heroId - 1]; // Adjust for zero-based index
+
+      if (!heroData) {
+        return 'N/A';
+      }
+
+      const rank5Winrate =
+        ((heroData['5_win'] + heroData['6_win']) /
+          (heroData['5_pick'] + heroData['6_pick'])) *
+        100;
+      return rank5Winrate.toFixed(2) + '%';
+    }
+    return 'loading results...';
+  };
 
   return (
     <>
@@ -81,7 +101,9 @@ function App() {
                       ]);
                     }}
                   >
-                    <h3>{hero.localized_name}</h3>
+                    <h3>
+                      {hero.localized_name} {getHeroWinrate(hero.id)}
+                    </h3>
                   </button>
                 </div>
               ))}
