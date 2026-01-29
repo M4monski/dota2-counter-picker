@@ -11,6 +11,7 @@ function App() {
   const [heroWinrates, setHeroWinrates] = useState([]);
   const [selectedHeroes, setSelectedHeroes] = useState([]);
   const [counterPicks, setCounterPicks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const loadHeroes = async () => {
@@ -56,7 +57,7 @@ function App() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 text-white font-sans selection:bg-red-500 selection:text-white">
+      <div className="min-h-screen bg-linear-to-br from-gray-900 via-slate-800 to-gray-900 text-white font-sans selection:bg-red-500 selection:text-white">
         <img
           src={dogImage}
           alt="THE DOG"
@@ -95,36 +96,52 @@ function App() {
                   placeholder="Search heroes..."
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                <i
+                  className="fa-solid fa-xmark text-gray-500 hover:text-red-400 transition-colors text-xs hover:cursor-pointer"
+                  onClick={() => setSearchQuery('')}
+                ></i>
               </div>
             </div>
 
             {/* Hero Picks Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {heroes.map((hero) => (
-                <button
-                  key={hero.id}
-                  className="w-full group flex items-center justify-between p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
-                  onClick={() => {
-                    if (
-                      selectedHeroes.includes(hero.localized_name) ||
-                      selectedHeroes.length >= 5
-                    ) {
-                      return;
-                    }
-                    setSelectedHeroes([...selectedHeroes, hero.localized_name]);
-                  }}
-                >
-                  <span className="font-medium text-gray-200 group-hover:text-white transition-colors">
-                    {hero.localized_name}
-                  </span>
-                  <span
-                    className={`text-sm font-mono font-bold ${getWinrateColor(getHeroWinrate(hero.id))}`}
+              {heroes
+                .filter((hero) =>
+                  hero.localized_name
+                    .toLowerCase()
+                    .includes(searchQuery.toLowerCase()),
+                )
+                .map((hero) => (
+                  <button
+                    id="hero"
+                    key={hero.id}
+                    className="w-full group flex items-center justify-between p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
+                    onClick={() => {
+                      if (
+                        selectedHeroes.includes(hero.localized_name) ||
+                        selectedHeroes.length >= 5
+                      ) {
+                        return;
+                      }
+                      setSelectedHeroes([
+                        ...selectedHeroes,
+                        hero.localized_name,
+                      ]);
+                    }}
                   >
-                    {getHeroWinrate(hero.id)}
-                  </span>
-                </button>
-              ))}
+                    <span className="font-medium text-gray-200 group-hover:text-white transition-colors">
+                      {hero.localized_name}
+                    </span>
+                    <span
+                      className={`text-sm font-mono font-bold ${getWinrateColor(getHeroWinrate(hero.id))}`}
+                    >
+                      {getHeroWinrate(hero.id)}
+                    </span>
+                  </button>
+                ))}
             </div>
           </div>
 
@@ -150,7 +167,7 @@ function App() {
                   selectedHeroes.map((selectedHero) => (
                     <button
                       key={selectedHero}
-                      className="flex items-center gap-2 bg-gradient-to-r from-red-900/40 to-gray-800 pl-3 pr-2 py-2 rounded-lg border border-red-900/30 hover:border-red-500/50 hover:from-red-900/60 transition-all group animate-fadeIn"
+                      className="h-1/2 flex items-center gap-2 pl-3 pr-2 py-2 rounded-lg border border-gray-600 bg-gray-700/50 hover:bg-red-500/20 transition-all group animate-fadeIn"
                       onClick={() => {
                         setSelectedHeroes(
                           selectedHeroes.filter(
@@ -162,7 +179,7 @@ function App() {
                       <span className="font-medium text-sm">
                         {selectedHero}
                       </span>
-                      <i className="fa-solid fa-xmark text-gray-500 group-hover:text-red-400 transition-colors text-xs"></i>
+                      <i className="fa-solid fa-xmark text-gray-500 group-hover:text-red-400 transition-colors text-xs "></i>
                     </button>
                   ))
                 )}
