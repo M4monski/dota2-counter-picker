@@ -1,48 +1,102 @@
 import { useState, useEffect } from 'react';
 import meepoImage from '/MEEPO.jpg';
 import dogImage from '/DOG.jpg';
-import { fetchHeroes, fetchHeroCounters, fetchHeroWinrate } from './api';
+import {
+  fetchHeroes,
+  fetchHeroCounters,
+  fetchHeroStats,
+  fetchTotalMatches,
+} from './api';
 import './App.css';
 
 function App() {
   const [isFocused, setIsFocused] = useState(false);
   const [heroes, setHeroes] = useState([]);
 
-  const [heroWinrates, setHeroWinrates] = useState([]);
+  const [heroStats, setHeroStats] = useState([]);
   const [selectedHeroes, setSelectedHeroes] = useState([]);
+  const [pickCount, setPickCount] = useState({});
   const [counterPicks, setCounterPicks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [totalMatches, setTotalMatches] = useState(0);
 
   useEffect(() => {
     const loadHeroes = async () => {
-      const data = await fetchHeroes();
-      setHeroes(data);
-      console.log('Heroes Loaded', data);
+      try {
+        const data = await fetchHeroes();
+        setHeroes(data);
+        console.log('Heroes Loaded', data);
+      } catch (error) {
+        console.error('Error loading heroes:', error);
+      }
 
       try {
-        const winrates = await fetchHeroWinrate();
-        setHeroWinrates(winrates);
-        console.log('Hero Winrates Loaded', winrates);
+        const stats = await fetchHeroStats();
+        setHeroStats(stats);
+        console.log('Hero Stats Loaded', stats);
       } catch (error) {
-        console.error('Error loading winrates:', error);
+        console.error('Error loading hero stats:', error);
       }
     };
     loadHeroes();
+
+    const loadTotalMatches = async () => {
+      try {
+        const totalMatches = await fetchTotalMatches();
+        setTotalMatches(totalMatches);
+        console.log('Total Matches:' + totalMatches);
+      } catch (error) {
+        console.error('Error loading total matches:', error);
+      }
+    };
+    loadTotalMatches();
   }, []);
 
-  const getHeroWinrate = (heroId) => {
-    if (heroWinrates && heroWinrates.length > 0) {
-      const heroData = heroWinrates[heroId - 1]; // Adjust for zero-based index
+  const getHeroPickRate = (heroId) => {
+    if (heroStats && heroStats.length > 0) {
+      const heroData = heroStats.find((hero) => hero.id === heroId);
+      if (!heroData) return 'N/A';
+      const heroPickRate =
+        ((heroData['1_pick'] +
+          heroData['2_pick'] +
+          heroData['3_pick'] +
+          heroData['4_pick'] +
+          heroData['5_pick'] +
+          heroData['6_pick'] +
+          heroData['7_pick'] +
+          heroData['8_pick']) /
+          totalMatches) *
+        100000;
+      return heroPickRate.toFixed(2) + '%';
+    }
+  };
 
+  const getHeroWinrate = (heroId) => {
+    if (heroStats && heroStats.length > 0) {
+      // Find the hero data by matching the heroId instead of using it as an array index.
+      const heroData = heroStats.find((hero) => hero.id === heroId);
       if (!heroData) {
         return 'N/A';
       }
-
-      const rank5Winrate =
-        ((heroData['5_win'] + heroData['6_win']) /
-          (heroData['5_pick'] + heroData['6_pick'])) *
+      const allRankWinrate =
+        ((heroData['1_win'] +
+          heroData['2_win'] +
+          heroData['3_win'] +
+          heroData['4_win'] +
+          heroData['5_win'] +
+          heroData['6_win'] +
+          heroData['7_win'] +
+          heroData['8_win']) /
+          (heroData['1_pick'] +
+            heroData['2_pick'] +
+            heroData['3_pick'] +
+            heroData['4_pick'] +
+            heroData['5_pick'] +
+            heroData['6_pick'] +
+            heroData['7_pick'] +
+            heroData['8_pick'])) *
         100;
-      return rank5Winrate.toFixed(2) + '%';
+      return allRankWinrate.toFixed(2) + '%';
     }
     return 'loading results...';
   };
@@ -118,7 +172,7 @@ function App() {
                   <button
                     id="hero"
                     key={hero.id}
-                    className="w-full group flex items-center justify-between p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
+                    className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
                     onClick={() => {
                       if (
                         selectedHeroes.includes(hero.localized_name) ||
@@ -132,13 +186,16 @@ function App() {
                       ]);
                     }}
                   >
-                    <span className="font-medium text-gray-200 group-hover:text-white transition-colors">
+                    <span className="font-medium text-gray-200 group-hover:text-white transition-colors flex-1 truncate">
                       {hero.localized_name}
                     </span>
                     <span
-                      className={`text-sm font-mono font-bold ${getWinrateColor(getHeroWinrate(hero.id))}`}
+                      className={`text-sm font-mono font-bold w-24 text-center ${getWinrateColor(getHeroWinrate(hero.id))}`}
                     >
                       {getHeroWinrate(hero.id)}
+                    </span>
+                    <span className="text-sm font-mono font-bold w-24 text-center">
+                      {getHeroPickRate(hero.id)}
                     </span>
                   </button>
                 ))}
@@ -148,14 +205,21 @@ function App() {
           {/* Selected Heroes and Counter Picks */}
           <div className="flex-1 flex flex-col gap-6 h-[75vh]">
             {/* Selected Heroes */}
-            <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl">
-              <div className="flex justify-between items-center mb-4">
+            <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl flex flex-col">
+              <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
                   <i className="fa-solid fa-users text-red-500"></i> Your Team
                 </h2>
                 <span className="text-xs font-mono text-gray-500 bg-gray-900 px-2 py-1 rounded-md border border-gray-800">
                   {selectedHeroes.length} / 5
                 </span>
+              </div>
+
+              <div className="w-full bg-gray-900/70 rounded-full h-2 mb-4">
+                <div
+                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(selectedHeroes.length / 5) * 100}%` }}
+                ></div>
               </div>
 
               <div className="min-h-[100px] flex flex-wrap gap-3">
@@ -203,5 +267,4 @@ function App() {
     </>
   );
 }
-
 export default App;
