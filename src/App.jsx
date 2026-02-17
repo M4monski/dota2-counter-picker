@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import meepoImage from '/MEEPO.jpg';
 import dogImage from '/DOG.jpg';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchHeroes,
   fetchHeroCounters,
@@ -19,6 +21,7 @@ function App() {
   const [counterPicks, setCounterPicks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [totalMatches, setTotalMatches] = useState(0);
+  const [isLoadingCounters, setIsLoadingCounters] = useState(false);
 
   useEffect(() => {
     const loadHeroes = async () => {
@@ -52,53 +55,106 @@ function App() {
     loadTotalMatches();
   }, []);
 
-  const getHeroPickRate = (heroId) => {
-    if (heroStats && heroStats.length > 0) {
-      const heroData = heroStats.find((hero) => hero.id === heroId);
-      if (!heroData) return 'N/A';
-      const heroPickRate =
-        ((heroData['1_pick'] +
-          heroData['2_pick'] +
-          heroData['3_pick'] +
-          heroData['4_pick'] +
-          heroData['5_pick'] +
-          heroData['6_pick'] +
-          heroData['7_pick'] +
-          heroData['8_pick']) /
-          totalMatches) *
-        100000;
-      return heroPickRate.toFixed(2) + '%';
+  useEffect(() => {
+    const analyzeCounterPicks = async () => {
+      if (selectedHeroes.length === 0) {
+        setCounterPicks([]);
+        return;
+      }
+
+      setIsLoadingCounters(true);
+      setCounterPicks([]); // Clear previous results
+
+      try {
+        const selectedHeroIds = selectedHeroes
+          .map((heroName) => {
+            const hero = heroes.find((h) => h.localized_name === heroName);
+            return hero ? hero.id : null;
+          })
+          .filter((id) => id !== null);
+
+        if (selectedHeroIds.length === 0) {
+          setIsLoadingCounters(false);
+          return;
+        }
+
+        const allCountersPromises = selectedHeroIds.map((id) =>
+          fetchHeroCounters(id),
+        );
+        const allCountersData = await Promise.all(allCountersPromises);
+
+        const counterScores = {};
+        allCountersData.forEach((enemyCounters) => {
+          enemyCounters.forEach((counter) => {
+            const { hero_id, games_played, wins } = counter;
+
+            // If no games were played, we can't calculate a winrate, so skip.
+            if (games_played === 0) {
+              return;
+            }
+
+            const winrate = wins / games_played;
+            const advantage = winrate - 0.5;
+
+            if (!counterScores[hero_id]) {
+              counterScores[hero_id] = { totalAdvantage: 0, count: 0 };
+            }
+            counterScores[hero_id].totalAdvantage += advantage;
+            counterScores[hero_id].count += 1;
+          });
+        });
+
+        const aggregatedCounters = Object.entries(counterScores)
+          .map(([hero_id, scoreData]) => ({
+            hero_id: parseInt(hero_id, 10),
+            ...scoreData,
+          }))
+          .filter((counter) => !selectedHeroIds.includes(counter.hero_id))
+          .sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return b.totalAdvantage - a.totalAdvantage;
+          });
+
+        setCounterPicks(aggregatedCounters);
+      } catch (error) {
+        console.error('Error analyzing counter picks:', error);
+      } finally {
+        setIsLoadingCounters(false);
+      }
+    };
+
+    analyzeCounterPicks();
+  }, [selectedHeroes, heroes]);
+
+  const sumRankedStats = (heroData, statPrefix) => {
+    let total = 0;
+    for (let i = 1; i <= 8; i++) {
+      total += heroData[`${i}_${statPrefix}`] || 0;
     }
+    return total;
+  };
+
+  const getHeroPickRate = (heroId) => {
+    if (!heroStats || heroStats.length === 0 || !totalMatches) return 'N/A';
+    const heroData = heroStats.find((hero) => hero.id === heroId);
+    if (!heroData) return 'N/A';
+    const totalPicks = sumRankedStats(heroData, 'pick');
+    const heroPickRate = (totalPicks / totalMatches) * 100;
+    return heroPickRate.toFixed(2) + '%';
   };
 
   const getHeroWinrate = (heroId) => {
-    if (heroStats && heroStats.length > 0) {
-      // Find the hero data by matching the heroId instead of using it as an array index.
-      const heroData = heroStats.find((hero) => hero.id === heroId);
-      if (!heroData) {
-        return 'N/A';
-      }
-      const allRankWinrate =
-        ((heroData['1_win'] +
-          heroData['2_win'] +
-          heroData['3_win'] +
-          heroData['4_win'] +
-          heroData['5_win'] +
-          heroData['6_win'] +
-          heroData['7_win'] +
-          heroData['8_win']) /
-          (heroData['1_pick'] +
-            heroData['2_pick'] +
-            heroData['3_pick'] +
-            heroData['4_pick'] +
-            heroData['5_pick'] +
-            heroData['6_pick'] +
-            heroData['7_pick'] +
-            heroData['8_pick'])) *
-        100;
-      return allRankWinrate.toFixed(2) + '%';
-    }
-    return 'loading results...';
+    if (!heroStats || heroStats.length === 0) return 'loading results...';
+    const heroData = heroStats.find((hero) => hero.id === heroId);
+    if (!heroData) return 'N/A';
+
+    const totalWins = sumRankedStats(heroData, 'win');
+    const totalPicks = sumRankedStats(heroData, 'pick');
+
+    if (totalPicks === 0) return '0.00%';
+
+    const allRankWinrate = (totalWins / totalPicks) * 100;
+    return allRankWinrate.toFixed(2) + '%';
   };
 
   const getWinrateColor = (winrate) => {
@@ -124,7 +180,8 @@ function App() {
             Dota 2 Counter Picker
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Select your team's heroes to discover their counter picks and items.
+            Select enemy teams's heroes to discover their counter picks and
+            items.
             <span className="block text-xs text-gray-600 mt-1 italic">
               "kay yawa sila"
             </span>
@@ -208,7 +265,7 @@ function App() {
             <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl flex flex-col">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
-                  <i className="fa-solid fa-users text-red-500"></i> Your Team
+                  <i className="fa-solid fa-users text-red-500"></i> Enemy
                 </h2>
                 <span className="text-xs font-mono text-gray-500 bg-gray-900 px-2 py-1 rounded-md border border-gray-800">
                   {selectedHeroes.length} / 5
@@ -256,10 +313,69 @@ function App() {
                 <i className="fa-solid fa-chart-simple text-blue-500"></i>{' '}
                 Counter Analysis
               </h2>
-              <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
-                <i className="fa-solid fa-chart-pie text-4xl opacity-20"></i>
-                <p>Analysis will appear here...</p>
-              </div>
+              {(() => {
+                if (selectedHeroes.length === 0) {
+                  return (
+                    <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
+                      <i className="fa-solid fa-chart-pie text-4xl opacity-20"></i>
+                      <p>Analysis will appear here...</p>
+                    </div>
+                  );
+                }
+
+                if (isLoadingCounters) {
+                  return (
+                    <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
+                      <FontAwesomeIcon
+                        icon={faSpinner}
+                        className="text-4xl opacity-20"
+                        spin
+                      />
+                      <p>Analyzing...</p>
+                    </div>
+                  );
+                }
+
+                if (counterPicks.length === 0) {
+                  return (
+                    <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
+                      <i className="fa-solid fa-triangle-exclamation text-4xl opacity-20"></i>
+                      <p>No counter data found.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+                    {counterPicks.slice(0, 5).map((counter) => {
+                      const heroInfo = heroes.find(
+                        (h) => h.id === counter.hero_id,
+                      );
+                      if (!heroInfo) return null;
+
+                      const overallAdvantage =
+                        (counter.totalAdvantage / selectedHeroes.length) * 100;
+
+                      return (
+                        <div
+                          key={counter.hero_id}
+                          className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30"
+                        >
+                          <span className="font-medium text-gray-200 flex-1 truncate">
+                            {heroInfo.localized_name}
+                          </span>
+                          <span className="text-sm text-gray-400 w-32 text-center">
+                            Counters {counter.count}/{selectedHeroes.length}
+                          </span>
+                          <span className="text-sm font-mono font-bold w-24 text-center text-green-400">
+                            +{overallAdvantage.toFixed(2)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
