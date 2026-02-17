@@ -296,13 +296,13 @@ function App() {
               </button>
               <button
                 onClick={() => requestSort('winrate')}
-                className="w-24 text-center hover:text-white transition-colors flex items-center justify-center"
+                className="w-28 text-left hover:text-white transition-colors flex items-center justify-center"
               >
                 Win Rate {getSortIndicator('winrate')}
               </button>
               <button
                 onClick={() => requestSort('pickrate')}
-                className="w-24 text-center hover:text-white transition-colors flex items-center justify-center"
+                className="w-28 text-left hover:text-white transition-colors flex items-center justify-center"
               >
                 Pick Rate {getSortIndicator('pickrate')}
               </button>
