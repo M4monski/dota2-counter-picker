@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import meepoImage from '/MEEPO.jpg';
 import dogImage from '/DOG.jpg';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,6 +11,15 @@ import {
 } from './api';
 import './App.css';
 
+// Helper function can be defined outside the component
+// as it doesn't rely on any props or state.
+function sumRankedStats(heroData, statPrefix) {
+  let total = 0;
+  for (let i = 1; i <= 8; i++) {
+    total += heroData[`${i}_${statPrefix}`] || 0;
+  }
+  return total;
+}
 function App() {
   const [isFocused, setIsFocused] = useState(false);
   const [heroes, setHeroes] = useState([]);
@@ -22,6 +31,10 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [totalMatches, setTotalMatches] = useState(0);
   const [isLoadingCounters, setIsLoadingCounters] = useState(false);
+  const [sortConfig, setSortConfig] = useState({
+    key: 'localized_name',
+    direction: 'ascending',
+  });
 
   useEffect(() => {
     const loadHeroes = async () => {
@@ -126,36 +139,92 @@ function App() {
     analyzeCounterPicks();
   }, [selectedHeroes, heroes]);
 
-  const sumRankedStats = (heroData, statPrefix) => {
-    let total = 0;
-    for (let i = 1; i <= 8; i++) {
-      total += heroData[`${i}_${statPrefix}`] || 0;
+  const getHeroPickRate = useCallback(
+    (heroId) => {
+      if (!heroStats || heroStats.length === 0 || !totalMatches) return 'N/A';
+      const heroData = heroStats.find((hero) => hero.id === heroId);
+      if (!heroData) return 'N/A';
+      const totalPicks = sumRankedStats(heroData, 'pick');
+      const heroPickRate = (totalPicks / totalMatches) * 100000;
+      return heroPickRate.toFixed(2) + '%';
+    },
+    [heroStats, totalMatches],
+  );
+
+  const getHeroWinrate = useCallback(
+    (heroId) => {
+      if (!heroStats || heroStats.length === 0) return 'loading results...';
+      const heroData = heroStats.find((hero) => hero.id === heroId);
+      if (!heroData) return 'N/A';
+
+      const totalWins = sumRankedStats(heroData, 'win');
+      const totalPicks = sumRankedStats(heroData, 'pick');
+
+      if (totalPicks === 0) return '0.00%';
+
+      const allRankWinrate = (totalWins / totalPicks) * 100;
+      return allRankWinrate.toFixed(2) + '%';
+    },
+    [heroStats],
+  );
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
     }
-    return total;
+    setSortConfig({ key, direction });
   };
 
-  const getHeroPickRate = (heroId) => {
-    if (!heroStats || heroStats.length === 0 || !totalMatches) return 'N/A';
-    const heroData = heroStats.find((hero) => hero.id === heroId);
-    if (!heroData) return 'N/A';
-    const totalPicks = sumRankedStats(heroData, 'pick');
-    const heroPickRate = (totalPicks / totalMatches) * 100;
-    return heroPickRate.toFixed(2) + '%';
+  const getSortIndicator = (key) => {
+    if (sortConfig.key !== key) {
+      return null;
+    }
+    return sortConfig.direction === 'ascending' ? (
+      <i className="fa-solid fa-sort-up ml-1"></i>
+    ) : (
+      <i className="fa-solid fa-sort-down ml-1"></i>
+    );
   };
 
-  const getHeroWinrate = (heroId) => {
-    if (!heroStats || heroStats.length === 0) return 'loading results...';
-    const heroData = heroStats.find((hero) => hero.id === heroId);
-    if (!heroData) return 'N/A';
+  const sortedAndFilteredHeroes = useMemo(() => {
+    let sortableHeroes = [...heroes];
 
-    const totalWins = sumRankedStats(heroData, 'win');
-    const totalPicks = sumRankedStats(heroData, 'pick');
+    if (searchQuery) {
+      sortableHeroes = sortableHeroes.filter((hero) =>
+        hero.localized_name.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+    }
 
-    if (totalPicks === 0) return '0.00%';
+    if (sortConfig.key) {
+      sortableHeroes.sort((a, b) => {
+        let aValue;
+        let bValue;
 
-    const allRankWinrate = (totalWins / totalPicks) * 100;
-    return allRankWinrate.toFixed(2) + '%';
-  };
+        if (sortConfig.key === 'winrate') {
+          aValue = parseFloat(getHeroWinrate(a.id)) || -1;
+          bValue = parseFloat(getHeroWinrate(b.id)) || -1;
+        } else if (sortConfig.key === 'pickrate') {
+          aValue = parseFloat(getHeroPickRate(a.id)) || -1;
+          bValue = parseFloat(getHeroPickRate(b.id)) || -1;
+        } else {
+          // localized_name
+          aValue = a[sortConfig.key];
+          bValue = b[sortConfig.key];
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return sortableHeroes;
+  }, [heroes, searchQuery, sortConfig, getHeroWinrate, getHeroPickRate]);
 
   const getWinrateColor = (winrate) => {
     if (typeof winrate === 'string' && winrate.includes('%')) {
@@ -217,45 +286,58 @@ function App() {
               </div>
             </div>
 
+            {/* Hero List Header */}
+            <div className="flex items-center px-7 py-2 text-xs text-gray-400 font-bold uppercase tracking-wider border-b border-gray-700 bg-gray-800/80">
+              <button
+                onClick={() => requestSort('localized_name')}
+                className="flex-1 text-left hover:text-white transition-colors flex items-center"
+              >
+                Hero {getSortIndicator('localized_name')}
+              </button>
+              <button
+                onClick={() => requestSort('winrate')}
+                className="w-24 text-center hover:text-white transition-colors flex items-center justify-center"
+              >
+                Win Rate {getSortIndicator('winrate')}
+              </button>
+              <button
+                onClick={() => requestSort('pickrate')}
+                className="w-24 text-center hover:text-white transition-colors flex items-center justify-center"
+              >
+                Pick Rate {getSortIndicator('pickrate')}
+              </button>
+            </div>
+
             {/* Hero Picks Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {heroes
-                .filter((hero) =>
-                  hero.localized_name
-                    .toLowerCase()
-                    .includes(searchQuery.toLowerCase()),
-                )
-                .map((hero) => (
-                  <button
-                    id="hero"
-                    key={hero.id}
-                    className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
-                    onClick={() => {
-                      if (
-                        selectedHeroes.includes(hero.localized_name) ||
-                        selectedHeroes.length >= 5
-                      ) {
-                        return;
-                      }
-                      setSelectedHeroes([
-                        ...selectedHeroes,
-                        hero.localized_name,
-                      ]);
-                    }}
+              {sortedAndFilteredHeroes.map((hero) => (
+                <button
+                  id="hero"
+                  key={hero.id}
+                  className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30 hover:bg-gray-700 hover:shadow-md border border-transparent hover:border-gray-600 transition-all duration-200 text-left"
+                  onClick={() => {
+                    if (
+                      selectedHeroes.includes(hero.localized_name) ||
+                      selectedHeroes.length >= 5
+                    ) {
+                      return;
+                    }
+                    setSelectedHeroes([...selectedHeroes, hero.localized_name]);
+                  }}
+                >
+                  <span className="font-medium text-gray-200 group-hover:text-white transition-colors flex-1 truncate">
+                    {hero.localized_name}
+                  </span>
+                  <span
+                    className={`text-sm font-mono font-bold w-24 text-center ${getWinrateColor(getHeroWinrate(hero.id))}`}
                   >
-                    <span className="font-medium text-gray-200 group-hover:text-white transition-colors flex-1 truncate">
-                      {hero.localized_name}
-                    </span>
-                    <span
-                      className={`text-sm font-mono font-bold w-24 text-center ${getWinrateColor(getHeroWinrate(hero.id))}`}
-                    >
-                      {getHeroWinrate(hero.id)}
-                    </span>
-                    <span className="text-sm font-mono font-bold w-24 text-center">
-                      {getHeroPickRate(hero.id)}
-                    </span>
-                  </button>
-                ))}
+                    {getHeroWinrate(hero.id)}
+                  </span>
+                  <span className="text-sm font-mono font-bold w-24 text-center">
+                    {getHeroPickRate(hero.id)}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
