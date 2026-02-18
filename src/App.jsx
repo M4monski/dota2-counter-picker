@@ -76,7 +76,7 @@ function App() {
       }
 
       setIsLoadingCounters(true);
-      setCounterPicks({ good: [], bad: [] }); // Clear previous results
+      setCounterPicks({ good: [], bad: [] });
 
       try {
         const selectedHeroIds = selectedHeroes
