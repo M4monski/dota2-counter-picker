@@ -27,7 +27,7 @@ function App() {
   const [heroStats, setHeroStats] = useState([]);
   const [selectedHeroes, setSelectedHeroes] = useState([]);
   const [pickCount, setPickCount] = useState({});
-  const [counterPicks, setCounterPicks] = useState([]);
+  const [counterPicks, setCounterPicks] = useState({ good: [], bad: [] });
   const [searchQuery, setSearchQuery] = useState('');
   const [totalMatches, setTotalMatches] = useState(0);
   const [isLoadingCounters, setIsLoadingCounters] = useState(false);
@@ -71,12 +71,12 @@ function App() {
   useEffect(() => {
     const analyzeCounterPicks = async () => {
       if (selectedHeroes.length === 0) {
-        setCounterPicks([]);
+        setCounterPicks({ good: [], bad: [] });
         return;
       }
 
       setIsLoadingCounters(true);
-      setCounterPicks([]); // Clear previous results
+      setCounterPicks({ good: [], bad: [] }); // Clear previous results
 
       try {
         const selectedHeroIds = selectedHeroes
@@ -117,18 +117,30 @@ function App() {
           });
         });
 
-        const aggregatedCounters = Object.entries(counterScores)
+        const aggregatedCountersWithAdv = Object.entries(counterScores)
           .map(([hero_id, scoreData]) => ({
             hero_id: parseInt(hero_id, 10),
             ...scoreData,
+            overallAdvantage:
+              (scoreData.totalAdvantage / selectedHeroes.length) * 100,
           }))
-          .filter((counter) => !selectedHeroIds.includes(counter.hero_id))
+          .filter((counter) => !selectedHeroIds.includes(counter.hero_id));
+
+        const goodAgainst = aggregatedCountersWithAdv
+          .filter((counter) => counter.overallAdvantage > 0)
           .sort((a, b) => {
             if (b.count !== a.count) return b.count - a.count;
-            return b.totalAdvantage - a.totalAdvantage;
+            return b.overallAdvantage - a.overallAdvantage;
           });
 
-        setCounterPicks(aggregatedCounters);
+        const badAgainst = aggregatedCountersWithAdv
+          .filter((counter) => counter.overallAdvantage < 0)
+          .sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.overallAdvantage - b.overallAdvantage;
+          });
+
+        setCounterPicks({ good: goodAgainst, bad: badAgainst });
       } catch (error) {
         console.error('Error analyzing counter picks:', error);
       } finally {
@@ -260,7 +272,7 @@ function App() {
         {/* Main content */}
         <div className="flex flex-col lg:flex-row justify-center m-auto gap-8 w-[90%] max-w-7xl pb-10">
           {/* Hero Selection */}
-          <div className="flex-1 bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700 shadow-xl overflow-hidden flex flex-col h-[75vh]">
+          <div className="lg:w-2/5 bg-gray-800/50 backdrop-blur-sm rounded-3xl border border-gray-700 shadow-xl overflow-hidden flex flex-col h-[75vh]">
             {/* Input area */}
             <div className="p-6 border-b border-gray-700 bg-gray-800/80">
               <div
@@ -342,12 +354,12 @@ function App() {
           </div>
 
           {/* Selected Heroes and Counter Picks */}
-          <div className="flex-1 flex flex-col gap-6 h-[75vh]">
+          <div className="lg:w-3/5 flex flex-col gap-6 h-[75vh]">
             {/* Selected Heroes */}
             <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-3xl border border-gray-700 shadow-xl flex flex-col">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
-                  <i className="fa-solid fa-users text-red-500"></i> Enemy
+                  <i className="fa-solid fa-users text-green-500"></i> Your Team
                 </h2>
                 <span className="text-xs font-mono text-gray-500 bg-gray-900 px-2 py-1 rounded-md border border-gray-800">
                   {selectedHeroes.length} / 5
@@ -356,7 +368,7 @@ function App() {
 
               <div className="w-full bg-gray-900/70 rounded-full h-2 mb-4">
                 <div
-                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(selectedHeroes.length / 5) * 100}%` }}
                 ></div>
               </div>
@@ -418,7 +430,10 @@ function App() {
                   );
                 }
 
-                if (counterPicks.length === 0) {
+                if (
+                  counterPicks.good.length === 0 &&
+                  counterPicks.bad.length === 0
+                ) {
                   return (
                     <div className="flex-1 border-2 border-dashed border-gray-700/50 rounded-xl flex flex-col items-center justify-center text-gray-500 gap-3">
                       <i className="fa-solid fa-triangle-exclamation text-4xl opacity-20"></i>
@@ -428,33 +443,84 @@ function App() {
                 }
 
                 return (
-                  <div className="flex-1 overflow-y-auto pr-2 space-y-2">
-                    {counterPicks.slice(0, 5).map((counter) => {
-                      const heroInfo = heroes.find(
-                        (h) => h.id === counter.hero_id,
-                      );
-                      if (!heroInfo) return null;
+                  <div className="flex flex-1 gap-6 overflow-y-auto pr-2">
+                    {/* Good Against Section */}
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-green-400 mb-2 flex items-center gap-2">
+                        <i className="fa-solid fa-thumbs-up"></i> Good Against
+                      </h3>
+                      {counterPicks.good.length > 0 ? (
+                        <div className="space-y-2">
+                          {counterPicks.good.slice(0, 5).map((counter) => {
+                            const heroInfo = heroes.find(
+                              (h) => h.id === counter.hero_id,
+                            );
+                            if (!heroInfo) return null;
 
-                      const overallAdvantage =
-                        (counter.totalAdvantage / selectedHeroes.length) * 100;
-
-                      return (
-                        <div
-                          key={counter.hero_id}
-                          className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30"
-                        >
-                          <span className="font-medium text-gray-200 flex-1 truncate">
-                            {heroInfo.localized_name}
-                          </span>
-                          <span className="text-sm text-gray-400 w-32 text-center">
-                            Counters {counter.count}/{selectedHeroes.length}
-                          </span>
-                          <span className="text-sm font-mono font-bold w-24 text-center text-green-400">
-                            +{overallAdvantage.toFixed(2)}%
-                          </span>
+                            return (
+                              <div
+                                key={counter.hero_id}
+                                className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30"
+                              >
+                                <span className="font-medium text-gray-200 flex-1 truncate">
+                                  {heroInfo.localized_name}
+                                </span>
+                                <span className="text-sm text-gray-400 w-28 text-center">
+                                  Counters {counter.count}/
+                                  {selectedHeroes.length}
+                                </span>
+                                <span className="text-sm font-mono font-bold w-16 text-center text-green-400">
+                                  +{counter.overallAdvantage.toFixed(2)}%
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No strong counters found.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Bad Against Section */}
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-red-400 mb-2 flex items-center gap-2">
+                        <i className="fa-solid fa-thumbs-down"></i> Bad Against
+                      </h3>
+                      {counterPicks.bad.length > 0 ? (
+                        <div className="space-y-2">
+                          {counterPicks.bad.slice(0, 5).map((counter) => {
+                            const heroInfo = heroes.find(
+                              (h) => h.id === counter.hero_id,
+                            );
+                            if (!heroInfo) return null;
+
+                            return (
+                              <div
+                                key={counter.hero_id}
+                                className="w-full group flex items-center p-3 rounded-xl bg-gray-700/30"
+                              >
+                                <span className="font-medium text-gray-200 flex-1 truncate">
+                                  {heroInfo.localized_name}
+                                </span>
+                                <span className="text-sm text-gray-400 w-28 text-center">
+                                  Weak to {counter.count}/
+                                  {selectedHeroes.length}
+                                </span>
+                                <span className="text-sm font-mono font-bold w-16 text-center text-red-400">
+                                  {counter.overallAdvantage.toFixed(2)}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No significant weaknesses found.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
